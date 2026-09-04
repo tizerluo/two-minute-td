@@ -84,6 +84,18 @@ canvas {
   box-shadow: 0 0 8px rgba(231, 111, 81, 0.5);
 }
 
+.build-btn.build-ice-btn {
+  border-color: #4cc9f0;
+}
+
+.build-btn.build-ice-btn.active,
+.build-btn.build-ice-btn.selected {
+  background: #4cc9f0;
+  color: #1a1a2e;
+  border-color: #a9edff;
+  box-shadow: 0 0 8px rgba(76, 201, 240, 0.6);
+}
+
 .build-btn.cannot-afford {
   opacity: 0.55;
 }

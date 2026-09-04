@@ -69,28 +69,44 @@ export const calculateEffectiveDamage = calculateDamage;
 export function applyDamage(
   enemy: Enemy,
   amount: number,
-  arg3?: DamageType | ((enemy: Enemy) => void),
-  arg4?: ((enemy: Enemy) => void) | DamageType,
+  arg3?:
+    | DamageType
+    | ((enemy: Enemy) => void)
+    | {
+        slow?: { pct?: number; duration?: number };
+        slowPct?: number;
+        slowDuration?: number;
+      },
+  arg4?:
+    | ((enemy: Enemy) => void)
+    | DamageType
+    | {
+        slow?: { pct?: number; duration?: number };
+        slowPct?: number;
+        slowDuration?: number;
+      },
+  arg5?: (enemy: Enemy) => void,
 ): boolean {
   if (enemy.dead || enemy.leaked) return false;
 
   let damageType: DamageType = "single";
   let onKill: ((enemy: Enemy) => void) | undefined;
+  let slowOption:
+    | {
+        slow?: { pct?: number; duration?: number };
+        slowPct?: number;
+        slowDuration?: number;
+      }
+    | undefined;
 
-  if (typeof arg3 === "function") {
-    onKill = arg3;
-    if (typeof arg4 === "string") {
-      damageType = arg4 as DamageType;
+  for (const arg of [arg3, arg4, arg5]) {
+    if (typeof arg === "function") {
+      onKill = arg as (enemy: Enemy) => void;
+    } else if (typeof arg === "string") {
+      damageType = arg as DamageType;
+    } else if (typeof arg === "object" && arg !== null) {
+      slowOption = arg;
     }
-  } else if (typeof arg3 === "string") {
-    damageType = arg3 as DamageType;
-    if (typeof arg4 === "function") {
-      onKill = arg4;
-    }
-  } else if (typeof arg4 === "function") {
-    onKill = arg4;
-  } else if (typeof arg4 === "string") {
-    damageType = arg4 as DamageType;
   }
 
   const effectiveDamage = calculateDamage(amount, damageType, enemy);
@@ -106,10 +122,89 @@ export function applyDamage(
     }
     return true;
   }
+
+  if (slowOption) {
+    const pct = slowOption.slowPct ?? slowOption.slow?.pct ?? 0.4;
+    const dur = slowOption.slowDuration ?? slowOption.slow?.duration ?? 1.5;
+    applySlow(enemy, pct, dur);
+  }
+
   return false;
 }
 
 export const damageEnemy = applyDamage;
+
+/**
+ * Applies a slow effect to an enemy.
+ * - 40% slow (moveSpeed *= 0.6) for ~1.5s
+ * - refresh on hit; stack=refresh not multiply.
+ */
+export function applySlow(
+  enemy: Enemy,
+  slowOrPct: number | { pct?: number; duration?: number } = 0.4,
+  duration = 1.5,
+): void {
+  if (enemy.dead || enemy.leaked) return;
+
+  let pct = 0.4;
+  let dur = 1.5;
+
+  if (typeof slowOrPct === "object" && slowOrPct !== null) {
+    if (typeof slowOrPct.pct === "number") pct = slowOrPct.pct;
+    if (typeof slowOrPct.duration === "number") dur = slowOrPct.duration;
+  } else if (typeof slowOrPct === "number") {
+    pct = slowOrPct;
+    if (typeof duration === "number") dur = duration;
+  } else if (typeof duration === "number") {
+    dur = duration;
+  }
+
+  // Ensure base speeds are stored
+  if (enemy.baseSpeed === undefined) {
+    enemy.baseSpeed = enemy.speed;
+  }
+  if (enemy.baseSpeedCells === undefined) {
+    enemy.baseSpeedCells = enemy.speedCells ?? enemy.speed;
+  }
+  if (enemy.baseSpeedPx === undefined) {
+    enemy.baseSpeedPx = enemy.speedPx ?? enemy.speed * CELL;
+  }
+
+  // Refresh duration on hit (stack = refresh not multiply)
+  enemy.slowTimer = dur;
+  enemy.slowDuration = dur;
+  enemy.slowRemaining = dur;
+  enemy.slowPct = pct;
+  enemy.isSlowed = true;
+  enemy.slowed = true;
+
+  // Set slowed speed based on original baseSpeed: moveSpeed *= (1 - pct)
+  const factor = Math.max(0, 1 - pct);
+  enemy.speed = enemy.baseSpeed * factor;
+  enemy.speedCells = enemy.baseSpeedCells * factor;
+  enemy.speedPx = enemy.baseSpeedPx * factor;
+}
+
+/**
+ * Clears any active slow effect on an enemy, restoring speed to original baseSpeed.
+ */
+export function clearSlow(enemy: Enemy): void {
+  if (enemy.baseSpeed !== undefined) {
+    enemy.speed = enemy.baseSpeed;
+  }
+  if (enemy.baseSpeedCells !== undefined) {
+    enemy.speedCells = enemy.baseSpeedCells;
+  }
+  if (enemy.baseSpeedPx !== undefined) {
+    enemy.speedPx = enemy.baseSpeedPx;
+  }
+  enemy.slowTimer = 0;
+  enemy.slowDuration = 0;
+  enemy.slowRemaining = 0;
+  enemy.slowPct = 0;
+  enemy.isSlowed = false;
+  enemy.slowed = false;
+}
 
 /**
  * Applies splash damage to primary target and all enemies within splashRadius (cells or px).

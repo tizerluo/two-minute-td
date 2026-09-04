@@ -8,6 +8,8 @@ import {
   applyDamage,
   damageEnemy,
   applySplashDamage,
+  applySlow,
+  clearSlow,
 } from "./enemy";
 import {
   Tower,
@@ -20,6 +22,7 @@ import {
   resetTowerId,
   placeArrowTower,
   placeCannonTower,
+  placeIceTower,
 } from "./tower";
 import {
   EnemyConfig,
@@ -33,6 +36,8 @@ import {
   ARROW_TOWER_CONFIG,
   CANNON_TOWER_CONFIG,
   CANNON_CONFIG,
+  ICE_TOWER_CONFIG,
+  ICE_CONFIG,
   TOWER_CONFIGS,
   TOWERS,
   getTowerConfig,
@@ -337,6 +342,14 @@ export function placeArrow(
   return placeArrowTower(state, col, row);
 }
 
+export function placeIce(
+  state: GameState,
+  col: number,
+  row: number,
+): Tower | null {
+  return placeIceTower(state, col, row);
+}
+
 export {
   drawTowers,
   placeTower,
@@ -345,13 +358,18 @@ export {
   createTower,
   placeArrowTower,
   placeCannonTower,
+  placeIceTower,
   calculateDamage,
   damageEnemy,
   applyDamage,
   applySplashDamage,
+  applySlow,
+  clearSlow,
   ARROW_TOWER_CONFIG,
   CANNON_TOWER_CONFIG,
   CANNON_CONFIG,
+  ICE_TOWER_CONFIG,
+  ICE_CONFIG,
   TOWER_CONFIGS,
   TOWERS,
   getTowerConfig,

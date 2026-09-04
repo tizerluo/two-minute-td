@@ -1,8 +1,22 @@
 import { CELL, Vec2, WAYPOINTS } from "./map";
 import { EnemyConfig, GRUNT_CONFIG, getEnemyConfig } from "../data/enemies";
-import { calculateDamage, applyDamage, damageEnemy, applySplashDamage } from "./combat";
+import {
+  calculateDamage,
+  applyDamage,
+  damageEnemy,
+  applySplashDamage,
+  applySlow,
+  clearSlow,
+} from "./combat";
 
-export { calculateDamage, applyDamage, damageEnemy, applySplashDamage };
+export {
+  calculateDamage,
+  applyDamage,
+  damageEnemy,
+  applySplashDamage,
+  applySlow,
+  clearSlow,
+};
 
 export interface Enemy {
   id: number;
@@ -13,6 +27,9 @@ export interface Enemy {
   speed: number; // cells per second (1.5 for Grunt)
   speedCells: number; // 1.5
   speedPx: number; // pixels per second (1.5 * CELL = 96)
+  baseSpeed: number;
+  baseSpeedCells: number;
+  baseSpeedPx: number;
   x: number;
   y: number;
   waypointIndex: number;
@@ -24,6 +41,12 @@ export interface Enemy {
   reward: number;
   singleDamageMult?: number;
   livesCost?: number;
+  slowTimer: number;
+  slowDuration: number;
+  slowRemaining: number;
+  slowPct: number;
+  isSlowed: boolean;
+  slowed: boolean;
 }
 
 let nextEnemyId = 1;
@@ -50,6 +73,9 @@ export function createEnemy(
     speed: config.speed,
     speedCells: config.speed,
     speedPx: config.speed * CELL,
+    baseSpeed: config.speed,
+    baseSpeedCells: config.speed,
+    baseSpeedPx: config.speed * CELL,
     x: start.x,
     y: start.y,
     waypointIndex: 1,
@@ -61,6 +87,12 @@ export function createEnemy(
     reward: config.reward ?? 10,
     singleDamageMult: config.singleDamageMult ?? 1,
     livesCost: config.livesCost ?? 1,
+    slowTimer: 0,
+    slowDuration: 0,
+    slowRemaining: 0,
+    slowPct: 0,
+    isSlowed: false,
+    slowed: false,
   };
 }
 
@@ -76,7 +108,40 @@ export function updateEnemy(
     if (enemy.spawnDelay > 0) return;
   }
 
-  let remainingDist = enemy.speedPx * dt;
+  // Ensure baseSpeed is initialized for safety
+  if (enemy.baseSpeed === undefined) {
+    enemy.baseSpeed = enemy.speed;
+  }
+  if (enemy.baseSpeedCells === undefined) {
+    enemy.baseSpeedCells = enemy.speedCells ?? enemy.speed;
+  }
+  if (enemy.baseSpeedPx === undefined) {
+    enemy.baseSpeedPx = enemy.speedPx ?? enemy.speed * CELL;
+  }
+
+  // Handle slow countdown and movement distance
+  let remainingDist = 0;
+  if (enemy.slowTimer !== undefined && enemy.slowTimer > 0) {
+    if (dt <= enemy.slowTimer) {
+      enemy.slowTimer -= dt;
+      enemy.slowRemaining = enemy.slowTimer;
+      remainingDist = enemy.speedPx * dt;
+      if (enemy.slowTimer <= 0) {
+        clearSlow(enemy);
+      }
+    } else {
+      const slowedDt = enemy.slowTimer;
+      const normalDt = dt - slowedDt;
+      remainingDist = enemy.speedPx * slowedDt;
+      clearSlow(enemy);
+      remainingDist += enemy.speedPx * normalDt;
+    }
+  } else {
+    if (enemy.isSlowed) {
+      clearSlow(enemy);
+    }
+    remainingDist = enemy.speedPx * dt;
+  }
 
   while (remainingDist > 0 && enemy.waypointIndex < WAYPOINTS.length) {
     const target = WAYPOINTS[enemy.waypointIndex]!;
@@ -108,6 +173,15 @@ export function drawEnemy(ctx: CanvasRenderingContext2D, enemy: Enemy): void {
   if (enemy.dead || enemy.leaked || enemy.spawnDelay > 0) return;
 
   ctx.save();
+
+  // Slow frost aura
+  if (enemy.isSlowed || (enemy.slowTimer !== undefined && enemy.slowTimer > 0)) {
+    ctx.beginPath();
+    ctx.arc(enemy.x, enemy.y, enemy.radius + 3, 0, Math.PI * 2);
+    ctx.strokeStyle = "rgba(76, 201, 240, 0.85)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
 
   // Draw enemy body as a circle
   ctx.beginPath();

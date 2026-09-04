@@ -49,9 +49,29 @@ export const CANNON_TOWER_CONFIG: TowerConfig = {
 
 export const CANNON_CONFIG = CANNON_TOWER_CONFIG;
 
+export const ICE_TOWER_CONFIG: TowerConfig = {
+  type: "ice",
+  name: "Ice Tower",
+  cost: 60,
+  damage: 4,
+  rate: 1.0,
+  range: 2.5,
+  damageType: "single",
+  color: "#4cc9f0",
+  slow: {
+    pct: 0.4,
+    duration: 1.5,
+  },
+  slowPct: 0.4,
+  slowDuration: 1.5,
+};
+
+export const ICE_CONFIG = ICE_TOWER_CONFIG;
+
 export const TOWER_CONFIGS: Record<string, TowerConfig> = {
   arrow: ARROW_TOWER_CONFIG,
   cannon: CANNON_TOWER_CONFIG,
+  ice: ICE_TOWER_CONFIG,
 };
 
 export const TOWERS = TOWER_CONFIGS;

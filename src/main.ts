@@ -28,10 +28,14 @@ import {
   damageEnemy,
   applyDamage,
   applySplashDamage,
+  applySlow,
+  clearSlow,
   placeArrowTower,
   placeCannonTower,
+  placeIceTower,
   placeCannon,
   placeArrow,
+  placeIce,
   GameState,
 } from "./game/state";
 import { Enemy } from "./game/enemy";
@@ -46,6 +50,8 @@ import {
   ARROW_TOWER_CONFIG,
   CANNON_TOWER_CONFIG,
   CANNON_CONFIG,
+  ICE_TOWER_CONFIG,
+  ICE_CONFIG,
   TOWER_CONFIGS,
   TOWERS,
   TowerConfig,
@@ -119,8 +125,18 @@ cannonBtn.setAttribute("data-cost", String(CANNON_TOWER_CONFIG.cost));
 cannonBtn.setAttribute("aria-pressed", "false");
 cannonBtn.textContent = `Cannon (${CANNON_TOWER_CONFIG.cost}g)`;
 
+const iceBtn = document.createElement("button");
+iceBtn.id = "build-ice";
+iceBtn.className = "build-btn tower-btn build-ice-btn";
+iceBtn.setAttribute("data-tower", "ice");
+iceBtn.setAttribute("data-type", "ice");
+iceBtn.setAttribute("data-cost", String(ICE_TOWER_CONFIG.cost));
+iceBtn.setAttribute("aria-pressed", "false");
+iceBtn.textContent = `Ice (${ICE_TOWER_CONFIG.cost}g)`;
+
 buildBar.appendChild(arrowBtn);
 buildBar.appendChild(cannonBtn);
+buildBar.appendChild(iceBtn);
 controlsContainer.appendChild(buildBar);
 
 const restartBtn = document.createElement("button");
@@ -151,12 +167,24 @@ export function selectTowerType(type: string): void {
     arrowBtn.setAttribute("aria-pressed", "false");
     cannonBtn.classList.add("active", "selected");
     cannonBtn.setAttribute("aria-pressed", "true");
+    iceBtn.classList.remove("active", "selected");
+    iceBtn.setAttribute("aria-pressed", "false");
+  } else if (normalized === "ice") {
+    selectedTowerType = "ice";
+    arrowBtn.classList.remove("active", "selected");
+    arrowBtn.setAttribute("aria-pressed", "false");
+    cannonBtn.classList.remove("active", "selected");
+    cannonBtn.setAttribute("aria-pressed", "false");
+    iceBtn.classList.add("active", "selected");
+    iceBtn.setAttribute("aria-pressed", "true");
   } else {
     selectedTowerType = "arrow";
     cannonBtn.classList.remove("active", "selected");
     cannonBtn.setAttribute("aria-pressed", "false");
     arrowBtn.classList.add("active", "selected");
     arrowBtn.setAttribute("aria-pressed", "true");
+    iceBtn.classList.remove("active", "selected");
+    iceBtn.setAttribute("aria-pressed", "false");
   }
   buildBar.setAttribute("data-selected", selectedTowerType);
   canvas.setAttribute("data-selected-tower", selectedTowerType);
@@ -164,19 +192,23 @@ export function selectTowerType(type: string): void {
 
 arrowBtn.addEventListener("click", () => selectTowerType("arrow"));
 cannonBtn.addEventListener("click", () => selectTowerType("cannon"));
+iceBtn.addEventListener("click", () => selectTowerType("ice"));
 
 // Expose for testing or inspection
 interface WindowWithGame {
   gameState: GameState;
   placeTower: (
-    col: number,
-    row: number,
-    typeOrConfig?: string | TowerConfig,
+    arg1: number | GameState,
+    arg2: number,
+    arg3?: number | string | TowerConfig,
+    arg4?: string | TowerConfig,
   ) => unknown;
   placeArrow: (col: number, row: number) => unknown;
   placeCannon: (col: number, row: number) => unknown;
+  placeIce: (col: number, row: number) => unknown;
   placeArrowTower: (col: number, row: number) => unknown;
   placeCannonTower: (col: number, row: number) => unknown;
+  placeIceTower: (col: number, row: number) => unknown;
   selectTower: (type: string) => void;
   selectedTower: () => string;
   setSelectedTower: (type: string) => void;
@@ -192,6 +224,8 @@ interface WindowWithGame {
   damageEnemy: typeof damageEnemy;
   applyDamage: typeof applyDamage;
   applySplashDamage: typeof applySplashDamage;
+  applySlow: typeof applySlow;
+  clearSlow: typeof clearSlow;
   handleEnemyLeak: typeof handleEnemyLeak;
   ENEMY_CONFIGS: typeof ENEMY_CONFIGS;
   RUNNER_CONFIG: typeof RUNNER_CONFIG;
@@ -203,16 +237,33 @@ interface WindowWithGame {
   ARROW_TOWER_CONFIG: typeof ARROW_TOWER_CONFIG;
   CANNON_TOWER_CONFIG: typeof CANNON_TOWER_CONFIG;
   CANNON_CONFIG: typeof CANNON_TOWER_CONFIG;
+  ICE_TOWER_CONFIG: typeof ICE_TOWER_CONFIG;
+  ICE_CONFIG: typeof ICE_TOWER_CONFIG;
   getTowerConfig: typeof getTowerConfig;
 }
 
 const win = window as unknown as WindowWithGame;
 win.gameState = gameState;
 win.placeTower = (
-  col: number,
-  row: number,
-  typeOrConfig?: string | TowerConfig,
+  arg1: number | GameState,
+  arg2: number,
+  arg3?: number | string | TowerConfig,
+  arg4?: string | TowerConfig,
 ) => {
+  if (typeof arg1 === "object" && arg1 !== null) {
+    const state = arg1 as GameState;
+    const col = arg2;
+    const row = arg3 as number;
+    const config = arg4
+      ? typeof arg4 === "string"
+        ? getTowerConfig(arg4)
+        : arg4
+      : getTowerConfig(selectedTowerType);
+    return placeTower(state, col, row, config);
+  }
+  const col = arg1 as number;
+  const row = arg2;
+  const typeOrConfig = arg3 as string | TowerConfig | undefined;
   const config = typeOrConfig
     ? typeof typeOrConfig === "string"
       ? getTowerConfig(typeOrConfig)
@@ -224,10 +275,14 @@ win.placeArrow = (col: number, row: number) =>
   placeArrow(gameState, col, row);
 win.placeCannon = (col: number, row: number) =>
   placeCannon(gameState, col, row);
+win.placeIce = (col: number, row: number) =>
+  placeIce(gameState, col, row);
 win.placeArrowTower = (col: number, row: number) =>
   placeArrowTower(gameState, col, row);
 win.placeCannonTower = (col: number, row: number) =>
   placeCannonTower(gameState, col, row);
+win.placeIceTower = (col: number, row: number) =>
+  placeIceTower(gameState, col, row);
 win.selectTower = (type: string) => selectTowerType(type);
 win.selectedTower = () => selectedTowerType;
 win.setSelectedTower = (type: string) => selectTowerType(type);
@@ -250,6 +305,8 @@ win.calculateDamage = calculateDamage;
 win.damageEnemy = damageEnemy;
 win.applyDamage = applyDamage;
 win.applySplashDamage = applySplashDamage;
+win.applySlow = applySlow;
+win.clearSlow = clearSlow;
 win.handleEnemyLeak = handleEnemyLeak;
 win.ENEMY_CONFIGS = ENEMY_CONFIGS;
 win.RUNNER_CONFIG = RUNNER_CONFIG;
@@ -261,6 +318,8 @@ win.TOWERS = TOWERS;
 win.ARROW_TOWER_CONFIG = ARROW_TOWER_CONFIG;
 win.CANNON_TOWER_CONFIG = CANNON_TOWER_CONFIG;
 win.CANNON_CONFIG = CANNON_CONFIG;
+win.ICE_TOWER_CONFIG = ICE_TOWER_CONFIG;
+win.ICE_CONFIG = ICE_CONFIG;
 win.getTowerConfig = getTowerConfig;
 
 let hoverCell: Cell | null = null;
@@ -309,6 +368,8 @@ window.addEventListener("keydown", (event: KeyboardEvent) => {
     selectTowerType("arrow");
   } else if (event.key === "2") {
     selectTowerType("cannon");
+  } else if (event.key === "3") {
+    selectTowerType("ice");
   }
 });
 
@@ -349,6 +410,11 @@ function frame(time: number): void {
   } else {
     cannonBtn.classList.add("cannot-afford");
   }
+  if (gameState.gold >= ICE_TOWER_CONFIG.cost) {
+    iceBtn.classList.remove("cannot-afford");
+  } else {
+    iceBtn.classList.add("cannot-afford");
+  }
 
   drawMap(ctx!);
 
@@ -372,6 +438,16 @@ function frame(time: number): void {
       ctx!.stroke();
 
       ctx!.fillStyle = "rgba(231, 111, 81, 0.25)";
+      ctx!.fillRect(hoverCell.col * CELL, hoverCell.row * CELL, CELL, CELL);
+    } else if (activeConfig.type === "ice") {
+      ctx!.fillStyle = "rgba(76, 201, 240, 0.08)";
+      ctx!.fill();
+      ctx!.strokeStyle = "rgba(76, 201, 240, 0.5)";
+      ctx!.lineWidth = 1.5;
+      ctx!.setLineDash([4, 4]);
+      ctx!.stroke();
+
+      ctx!.fillStyle = "rgba(76, 201, 240, 0.25)";
       ctx!.fillRect(hoverCell.col * CELL, hoverCell.row * CELL, CELL, CELL);
     } else {
       ctx!.fillStyle = "rgba(233, 196, 106, 0.08)";

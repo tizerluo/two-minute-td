@@ -1,14 +1,16 @@
 import { CELL, Vec2, cellCenter, isBuildable, WAYPOINTS } from "./map";
-import { Enemy, damageEnemy, applySplashDamage } from "./enemy";
+import { Enemy, damageEnemy, applySplashDamage, applySlow } from "./enemy";
 import {
   TowerConfig,
   ARROW_TOWER_CONFIG,
   CANNON_TOWER_CONFIG,
+  ICE_TOWER_CONFIG,
+  ICE_CONFIG,
   DamageType,
   getTowerConfig,
 } from "../data/towers";
 
-export { WAYPOINTS, applySplashDamage };
+export { WAYPOINTS, applySplashDamage, ICE_TOWER_CONFIG, ICE_CONFIG, applySlow };
 
 export interface Tower {
   id: number;
@@ -144,6 +146,14 @@ export function placeCannonTower(
   return placeTower(state, col, row, CANNON_TOWER_CONFIG);
 }
 
+export function placeIceTower(
+  state: { gold: number; towers: Tower[] },
+  col: number,
+  row: number,
+): Tower | null {
+  return placeTower(state, col, row, ICE_TOWER_CONFIG);
+}
+
 export const buildTower = placeTower;
 
 /**
@@ -227,6 +237,12 @@ export function updateTower(
       } else {
         damageEnemy(target, tower.damage, tower.damageType ?? "single", onKill);
       }
+
+      if (tower.type === "ice" || tower.slow || tower.slowPct !== undefined) {
+        const pct = tower.slow?.pct ?? tower.slowPct ?? 0.4;
+        const dur = tower.slow?.duration ?? tower.slowDuration ?? 1.5;
+        applySlow(target, pct, dur);
+      }
     } else {
       tower.cooldown = 0;
       tower.targetEnemyId = null;
@@ -297,6 +313,19 @@ export function drawTower(ctx: CanvasRenderingContext2D, tower: Tower): void {
       ctx.beginPath();
       ctx.arc(tower.lastShotTarget.x, tower.lastShotTarget.y, 6, 0, Math.PI * 2);
       ctx.fill();
+    } else if (tower.type === "ice") {
+      ctx.strokeStyle = `rgba(76, 201, 240, ${alpha})`;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(tower.x, tower.y);
+      ctx.lineTo(tower.lastShotTarget.x, tower.lastShotTarget.y);
+      ctx.stroke();
+
+      // Ice impact flash
+      ctx.fillStyle = `rgba(169, 237, 255, ${alpha})`;
+      ctx.beginPath();
+      ctx.arc(tower.lastShotTarget.x, tower.lastShotTarget.y, 5, 0, Math.PI * 2);
+      ctx.fill();
     } else {
       ctx.strokeStyle = `rgba(255, 209, 102, ${alpha})`;
       ctx.lineWidth = 2.5;
@@ -319,7 +348,12 @@ export function drawTower(ctx: CanvasRenderingContext2D, tower: Tower): void {
   const half = baseSize / 2;
   ctx.fillStyle = "#264653";
   ctx.fillRect(tower.x - half, tower.y - half, baseSize, baseSize);
-  ctx.strokeStyle = tower.type === "cannon" ? "#e76f51" : "#2a9d8f";
+  ctx.strokeStyle =
+    tower.type === "cannon"
+      ? "#e76f51"
+      : tower.type === "ice"
+        ? "#4cc9f0"
+        : "#2a9d8f";
   ctx.lineWidth = 2;
   ctx.strokeRect(tower.x - half, tower.y - half, baseSize, baseSize);
 
@@ -327,9 +361,19 @@ export function drawTower(ctx: CanvasRenderingContext2D, tower: Tower): void {
   ctx.beginPath();
   ctx.arc(tower.x, tower.y, 13, 0, Math.PI * 2);
   ctx.fillStyle =
-    tower.color ?? (tower.type === "cannon" ? "#e76f51" : "#e9c46a");
+    tower.color ??
+    (tower.type === "cannon"
+      ? "#e76f51"
+      : tower.type === "ice"
+        ? "#4cc9f0"
+        : "#e9c46a");
   ctx.fill();
-  ctx.strokeStyle = tower.type === "cannon" ? "#b23a22" : "#f4a261";
+  ctx.strokeStyle =
+    tower.type === "cannon"
+      ? "#b23a22"
+      : tower.type === "ice"
+        ? "#2b8ea8"
+        : "#f4a261";
   ctx.lineWidth = 2;
   ctx.stroke();
 
@@ -347,6 +391,24 @@ export function drawTower(ctx: CanvasRenderingContext2D, tower: Tower): void {
     ctx.fillStyle = "#e76f51";
     ctx.fillRect(15, -5.5, 3.5, 11);
     ctx.strokeRect(15, -5.5, 3.5, 11);
+    ctx.restore();
+  } else if (tower.type === "ice") {
+    // Ice crystal emitter
+    ctx.save();
+    ctx.translate(tower.x, tower.y);
+    ctx.rotate(tower.angle);
+    ctx.fillStyle = "#a9edff";
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 1.5;
+
+    ctx.beginPath();
+    ctx.moveTo(17, 0);
+    ctx.lineTo(8, -6);
+    ctx.lineTo(-4, 0);
+    ctx.lineTo(8, 6);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
     ctx.restore();
   } else {
     // Arrow launcher pointer
