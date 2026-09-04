@@ -1,5 +1,8 @@
 import { CELL, Vec2, WAYPOINTS } from "./map";
-import { EnemyConfig, GRUNT_CONFIG } from "../data/enemies";
+import { EnemyConfig, GRUNT_CONFIG, getEnemyConfig } from "../data/enemies";
+import { calculateDamage, applyDamage, damageEnemy } from "./combat";
+
+export { calculateDamage, applyDamage, damageEnemy };
 
 export interface Enemy {
   id: number;
@@ -30,9 +33,13 @@ export function resetEnemyId(): void {
 }
 
 export function createEnemy(
-  config: EnemyConfig = GRUNT_CONFIG,
+  configOrType: EnemyConfig | string = GRUNT_CONFIG,
   spawnDelay = 0,
 ): Enemy {
+  const config =
+    typeof configOrType === "string"
+      ? getEnemyConfig(configOrType)
+      : configOrType;
   const start: Vec2 = WAYPOINTS[0] ?? { x: 32, y: 96 };
   return {
     id: nextEnemyId++,
@@ -111,8 +118,17 @@ export function drawEnemy(ctx: CanvasRenderingContext2D, enemy: Enemy): void {
   ctx.lineWidth = 2;
   ctx.stroke();
 
+  // Armor plate inner ring for tank
+  if (enemy.type === "tank") {
+    ctx.beginPath();
+    ctx.arc(enemy.x, enemy.y, enemy.radius - 5, 0, Math.PI * 2);
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
   // Small health bar above enemy circle
-  const barW = 24;
+  const barW = Math.max(24, Math.round(enemy.radius * 1.8));
   const barH = 4;
   const barX = enemy.x - barW / 2;
   const barY = enemy.y - enemy.radius - 8;
@@ -145,28 +161,3 @@ export function drawEnemies(
     drawEnemy(ctx, enemy);
   }
 }
-
-/**
- * Apply damage to an enemy. Marks dead when hp <= 0 and calls onKill.
- * Returns true if the hit resulted in a kill.
- */
-export function damageEnemy(
-  enemy: Enemy,
-  amount: number,
-  onKill?: (enemy: Enemy) => void,
-): boolean {
-  if (enemy.dead || enemy.leaked) return false;
-  enemy.hp -= amount;
-  if (enemy.hp <= 0) {
-    enemy.hp = 0;
-    if (!enemy.dead) {
-      enemy.dead = true;
-      if (onKill) {
-        onKill(enemy);
-      }
-    }
-    return true;
-  }
-  return false;
-}
-

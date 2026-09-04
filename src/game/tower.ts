@@ -166,7 +166,7 @@ export function updateTower(
         onShoot(tower, target);
       }
 
-      damageEnemy(target, tower.damage, onKill);
+      damageEnemy(target, tower.damage, tower.damageType ?? "single", onKill);
     } else {
       tower.cooldown = 0;
       tower.targetEnemyId = null;

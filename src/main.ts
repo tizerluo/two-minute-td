@@ -19,8 +19,24 @@ import {
   canPlaceTower,
   startWave,
   waveScheduler,
+  spawnGrunt,
+  spawnRunner,
+  spawnTank,
+  spawnEnemy,
+  handleEnemyLeak,
+  calculateDamage,
+  damageEnemy,
+  applyDamage,
   GameState,
 } from "./game/state";
+import { Enemy } from "./game/enemy";
+import {
+  ENEMY_CONFIGS,
+  GRUNT_CONFIG,
+  RUNNER_CONFIG,
+  TANK_CONFIG,
+  getEnemyConfig,
+} from "./data/enemies";
 import { ARROW_TOWER_CONFIG } from "./data/towers";
 import { TOTAL_WAVES } from "./data/waves";
 
@@ -91,6 +107,19 @@ interface WindowWithGame {
   restartGame: (state?: GameState) => void;
   startWave: (state?: GameState) => void;
   waveScheduler: (state?: GameState, dt?: number) => void;
+  spawnGrunt: (state?: GameState, delay?: number) => Enemy;
+  spawnRunner: (state?: GameState, delay?: number) => Enemy;
+  spawnTank: (state?: GameState, delay?: number) => Enemy;
+  spawnEnemy: (state?: GameState, type?: string, delay?: number) => Enemy;
+  calculateDamage: typeof calculateDamage;
+  damageEnemy: typeof damageEnemy;
+  applyDamage: typeof applyDamage;
+  handleEnemyLeak: typeof handleEnemyLeak;
+  ENEMY_CONFIGS: typeof ENEMY_CONFIGS;
+  RUNNER_CONFIG: typeof RUNNER_CONFIG;
+  TANK_CONFIG: typeof TANK_CONFIG;
+  GRUNT_CONFIG: typeof GRUNT_CONFIG;
+  getEnemyConfig: typeof getEnemyConfig;
 }
 
 const win = window as unknown as WindowWithGame;
@@ -100,6 +129,20 @@ win.resetGameState = () => resetGameState(gameState);
 win.restartGame = () => resetGameState(gameState);
 win.startWave = () => startWave(gameState);
 win.waveScheduler = (state = gameState, dt = 0) => waveScheduler(state, dt);
+win.spawnGrunt = (state = gameState, delay = 0) => spawnGrunt(state, delay);
+win.spawnRunner = (state = gameState, delay = 0) => spawnRunner(state, delay);
+win.spawnTank = (state = gameState, delay = 0) => spawnTank(state, delay);
+win.spawnEnemy = (state = gameState, type = "grunt", delay = 0) =>
+  spawnEnemy(state, type, delay);
+win.calculateDamage = calculateDamage;
+win.damageEnemy = damageEnemy;
+win.applyDamage = applyDamage;
+win.handleEnemyLeak = handleEnemyLeak;
+win.ENEMY_CONFIGS = ENEMY_CONFIGS;
+win.RUNNER_CONFIG = RUNNER_CONFIG;
+win.TANK_CONFIG = TANK_CONFIG;
+win.GRUNT_CONFIG = GRUNT_CONFIG;
+win.getEnemyConfig = getEnemyConfig;
 
 let hoverCell: Cell | null = null;
 

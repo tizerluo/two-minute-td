@@ -1,4 +1,13 @@
-import { Enemy, createEnemy, updateEnemies, drawEnemy, resetEnemyId } from "./enemy";
+import {
+  Enemy,
+  createEnemy,
+  updateEnemies,
+  drawEnemy,
+  resetEnemyId,
+  calculateDamage,
+  applyDamage,
+  damageEnemy,
+} from "./enemy";
 import {
   Tower,
   createTower,
@@ -9,7 +18,13 @@ import {
   buildTower,
   resetTowerId,
 } from "./tower";
-import { GRUNT_CONFIG, getEnemyConfig } from "../data/enemies";
+import {
+  EnemyConfig,
+  GRUNT_CONFIG,
+  RUNNER_CONFIG,
+  TANK_CONFIG,
+  getEnemyConfig,
+} from "../data/enemies";
 import { WAVES, TOTAL_WAVES, WaveConfig, SpawnEntry } from "../data/waves";
 
 export const INITIAL_LIVES = 10;
@@ -104,7 +119,7 @@ function getWaveSpawns(waveConfig?: WaveConfig): readonly SpawnEntry[] {
   return [];
 }
 
-function spawnEnemyByType(type: string, delay = 0): Enemy {
+export function spawnEnemyByType(type: string, delay = 0): Enemy {
   const config = getEnemyConfig(type);
   return createEnemy(config, delay);
 }
@@ -132,6 +147,37 @@ export function spawnGrunt(state: GameState, delay = 0): Enemy {
   const enemy = createEnemy(GRUNT_CONFIG, delay);
   state.enemies.push(enemy);
   return enemy;
+}
+
+export function spawnRunner(state: GameState, delay = 0): Enemy {
+  const enemy = createEnemy(RUNNER_CONFIG, delay);
+  state.enemies.push(enemy);
+  return enemy;
+}
+
+export function spawnTank(state: GameState, delay = 0): Enemy {
+  const enemy = createEnemy(TANK_CONFIG, delay);
+  state.enemies.push(enemy);
+  return enemy;
+}
+
+export function spawnEnemy(
+  state: GameState,
+  typeOrConfig: string | EnemyConfig = GRUNT_CONFIG,
+  delay = 0,
+): Enemy {
+  const config =
+    typeof typeOrConfig === "string"
+      ? getEnemyConfig(typeOrConfig)
+      : typeOrConfig;
+  const enemy = createEnemy(config, delay);
+  state.enemies.push(enemy);
+  return enemy;
+}
+
+export function handleEnemyLeak(state: GameState, enemy: Enemy): void {
+  const cost = enemy.livesCost ?? 1;
+  state.lives = Math.max(0, state.lives - cost);
 }
 
 export function waveScheduler(state: GameState, dt: number): void {
@@ -190,8 +236,7 @@ export function updateGameState(state: GameState, dt: number): void {
 
   // 3. Update enemies along path
   state.enemies = updateEnemies(state.enemies, dt, (leakedEnemy) => {
-    const cost = leakedEnemy.livesCost ?? 1;
-    state.lives = Math.max(0, state.lives - cost);
+    handleEnemyLeak(state, leakedEnemy);
   });
 
   // 4. Update towers (targeting, shooting, cooldown, gold reward)
@@ -270,6 +315,8 @@ export {
   canPlaceTower,
   buildTower,
   createTower,
+  calculateDamage,
+  damageEnemy,
+  applyDamage,
 };
 export type { WaveConfig, SpawnEntry };
-
