@@ -34,7 +34,58 @@ canvas {
 .game-controls {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
+}
+
+.build-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #16213e;
+  padding: 4px 8px;
+  border-radius: 8px;
+  border: 1px solid #0f3460;
+}
+
+.build-btn {
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: inherit;
+  color: #f1faee;
+  background: #1b3a4b;
+  border: 2px solid #2a9d8f;
+  border-radius: 6px;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.build-btn:hover {
+  background: #264653;
+}
+
+.build-btn.active,
+.build-btn.selected {
+  background: #2a9d8f;
+  border-color: #e9c46a;
+  box-shadow: 0 0 8px rgba(233, 196, 106, 0.5);
+}
+
+.build-btn.build-cannon-btn {
+  border-color: #e76f51;
+}
+
+.build-btn.build-cannon-btn.active,
+.build-btn.build-cannon-btn.selected {
+  background: #e76f51;
+  border-color: #f4a261;
+  box-shadow: 0 0 8px rgba(231, 111, 81, 0.5);
+}
+
+.build-btn.cannot-afford {
+  opacity: 0.55;
 }
 
 .restart-btn {

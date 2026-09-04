@@ -1,8 +1,8 @@
 import { CELL, Vec2, WAYPOINTS } from "./map";
 import { EnemyConfig, GRUNT_CONFIG, getEnemyConfig } from "../data/enemies";
-import { calculateDamage, applyDamage, damageEnemy } from "./combat";
+import { calculateDamage, applyDamage, damageEnemy, applySplashDamage } from "./combat";
 
-export { calculateDamage, applyDamage, damageEnemy };
+export { calculateDamage, applyDamage, damageEnemy, applySplashDamage };
 
 export interface Enemy {
   id: number;

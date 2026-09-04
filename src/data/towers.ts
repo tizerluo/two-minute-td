@@ -35,13 +35,29 @@ export const ARROW_TOWER_CONFIG: TowerConfig = {
   damageType: "single",
 };
 
+export const CANNON_TOWER_CONFIG: TowerConfig = {
+  type: "cannon",
+  name: "Cannon Tower",
+  cost: 80,
+  damage: 22,
+  rate: 0.5,
+  range: 2.5,
+  damageType: "splash",
+  splashRadius: 1.5,
+  color: "#e76f51",
+};
+
+export const CANNON_CONFIG = CANNON_TOWER_CONFIG;
+
 export const TOWER_CONFIGS: Record<string, TowerConfig> = {
   arrow: ARROW_TOWER_CONFIG,
+  cannon: CANNON_TOWER_CONFIG,
 };
 
 export const TOWERS = TOWER_CONFIGS;
 
 export function getTowerConfig(type: string): TowerConfig {
-  return TOWER_CONFIGS[type] ?? ARROW_TOWER_CONFIG;
+  const key = type.toLowerCase().replace(/[\s_-]?tower$/, "").trim();
+  return TOWER_CONFIGS[key] ?? TOWER_CONFIGS[type] ?? ARROW_TOWER_CONFIG;
 }
 

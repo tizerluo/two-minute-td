@@ -27,6 +27,11 @@ import {
   calculateDamage,
   damageEnemy,
   applyDamage,
+  applySplashDamage,
+  placeArrowTower,
+  placeCannonTower,
+  placeCannon,
+  placeArrow,
   GameState,
 } from "./game/state";
 import { Enemy } from "./game/enemy";
@@ -37,7 +42,15 @@ import {
   TANK_CONFIG,
   getEnemyConfig,
 } from "./data/enemies";
-import { ARROW_TOWER_CONFIG } from "./data/towers";
+import {
+  ARROW_TOWER_CONFIG,
+  CANNON_TOWER_CONFIG,
+  CANNON_CONFIG,
+  TOWER_CONFIGS,
+  TOWERS,
+  TowerConfig,
+  getTowerConfig,
+} from "./data/towers";
 import { TOTAL_WAVES } from "./data/waves";
 
 const canvas = document.createElement("canvas");
@@ -78,9 +91,37 @@ app.appendChild(goldElement);
 app.appendChild(waveElement);
 app.appendChild(statusElement);
 
-// Controls container with Restart button
+// Controls container with Build Bar and Restart button
 const controlsContainer = document.createElement("div");
 controlsContainer.className = "game-controls";
+
+const buildBar = document.createElement("div");
+buildBar.id = "build-bar";
+buildBar.className = "build-bar";
+buildBar.setAttribute("role", "toolbar");
+buildBar.setAttribute("aria-label", "Build Bar");
+
+const arrowBtn = document.createElement("button");
+arrowBtn.id = "build-arrow";
+arrowBtn.className = "build-btn tower-btn build-arrow-btn active selected";
+arrowBtn.setAttribute("data-tower", "arrow");
+arrowBtn.setAttribute("data-type", "arrow");
+arrowBtn.setAttribute("data-cost", String(ARROW_TOWER_CONFIG.cost));
+arrowBtn.setAttribute("aria-pressed", "true");
+arrowBtn.textContent = `Arrow (${ARROW_TOWER_CONFIG.cost}g)`;
+
+const cannonBtn = document.createElement("button");
+cannonBtn.id = "build-cannon";
+cannonBtn.className = "build-btn tower-btn build-cannon-btn";
+cannonBtn.setAttribute("data-tower", "cannon");
+cannonBtn.setAttribute("data-type", "cannon");
+cannonBtn.setAttribute("data-cost", String(CANNON_TOWER_CONFIG.cost));
+cannonBtn.setAttribute("aria-pressed", "false");
+cannonBtn.textContent = `Cannon (${CANNON_TOWER_CONFIG.cost}g)`;
+
+buildBar.appendChild(arrowBtn);
+buildBar.appendChild(cannonBtn);
+controlsContainer.appendChild(buildBar);
 
 const restartBtn = document.createElement("button");
 restartBtn.id = "restart";
@@ -88,6 +129,7 @@ restartBtn.className = "restart-btn";
 restartBtn.textContent = "Restart (R)";
 restartBtn.addEventListener("click", () => {
   resetGameState(gameState);
+  selectTowerType("arrow");
 });
 controlsContainer.appendChild(restartBtn);
 app.appendChild(controlsContainer);
@@ -99,10 +141,45 @@ if (!ctx) {
 
 export const gameState: GameState = createGameState();
 
+let selectedTowerType = "arrow";
+
+export function selectTowerType(type: string): void {
+  const normalized = type.toLowerCase().replace(/[\s_-]?tower$/, "").trim();
+  if (normalized === "cannon") {
+    selectedTowerType = "cannon";
+    arrowBtn.classList.remove("active", "selected");
+    arrowBtn.setAttribute("aria-pressed", "false");
+    cannonBtn.classList.add("active", "selected");
+    cannonBtn.setAttribute("aria-pressed", "true");
+  } else {
+    selectedTowerType = "arrow";
+    cannonBtn.classList.remove("active", "selected");
+    cannonBtn.setAttribute("aria-pressed", "false");
+    arrowBtn.classList.add("active", "selected");
+    arrowBtn.setAttribute("aria-pressed", "true");
+  }
+  buildBar.setAttribute("data-selected", selectedTowerType);
+  canvas.setAttribute("data-selected-tower", selectedTowerType);
+}
+
+arrowBtn.addEventListener("click", () => selectTowerType("arrow"));
+cannonBtn.addEventListener("click", () => selectTowerType("cannon"));
+
 // Expose for testing or inspection
 interface WindowWithGame {
   gameState: GameState;
-  placeTower: (col: number, row: number) => unknown;
+  placeTower: (
+    col: number,
+    row: number,
+    typeOrConfig?: string | TowerConfig,
+  ) => unknown;
+  placeArrow: (col: number, row: number) => unknown;
+  placeCannon: (col: number, row: number) => unknown;
+  placeArrowTower: (col: number, row: number) => unknown;
+  placeCannonTower: (col: number, row: number) => unknown;
+  selectTower: (type: string) => void;
+  selectedTower: () => string;
+  setSelectedTower: (type: string) => void;
   resetGameState: (state?: GameState) => void;
   restartGame: (state?: GameState) => void;
   startWave: (state?: GameState) => void;
@@ -114,19 +191,54 @@ interface WindowWithGame {
   calculateDamage: typeof calculateDamage;
   damageEnemy: typeof damageEnemy;
   applyDamage: typeof applyDamage;
+  applySplashDamage: typeof applySplashDamage;
   handleEnemyLeak: typeof handleEnemyLeak;
   ENEMY_CONFIGS: typeof ENEMY_CONFIGS;
   RUNNER_CONFIG: typeof RUNNER_CONFIG;
   TANK_CONFIG: typeof TANK_CONFIG;
   GRUNT_CONFIG: typeof GRUNT_CONFIG;
   getEnemyConfig: typeof getEnemyConfig;
+  TOWER_CONFIGS: typeof TOWER_CONFIGS;
+  TOWERS: typeof TOWER_CONFIGS;
+  ARROW_TOWER_CONFIG: typeof ARROW_TOWER_CONFIG;
+  CANNON_TOWER_CONFIG: typeof CANNON_TOWER_CONFIG;
+  CANNON_CONFIG: typeof CANNON_TOWER_CONFIG;
+  getTowerConfig: typeof getTowerConfig;
 }
 
 const win = window as unknown as WindowWithGame;
 win.gameState = gameState;
-win.placeTower = (col: number, row: number) => placeTower(gameState, col, row);
-win.resetGameState = () => resetGameState(gameState);
-win.restartGame = () => resetGameState(gameState);
+win.placeTower = (
+  col: number,
+  row: number,
+  typeOrConfig?: string | TowerConfig,
+) => {
+  const config = typeOrConfig
+    ? typeof typeOrConfig === "string"
+      ? getTowerConfig(typeOrConfig)
+      : typeOrConfig
+    : getTowerConfig(selectedTowerType);
+  return placeTower(gameState, col, row, config);
+};
+win.placeArrow = (col: number, row: number) =>
+  placeArrow(gameState, col, row);
+win.placeCannon = (col: number, row: number) =>
+  placeCannon(gameState, col, row);
+win.placeArrowTower = (col: number, row: number) =>
+  placeArrowTower(gameState, col, row);
+win.placeCannonTower = (col: number, row: number) =>
+  placeCannonTower(gameState, col, row);
+win.selectTower = (type: string) => selectTowerType(type);
+win.selectedTower = () => selectedTowerType;
+win.setSelectedTower = (type: string) => selectTowerType(type);
+win.resetGameState = () => {
+  resetGameState(gameState);
+  selectTowerType("arrow");
+};
+win.restartGame = () => {
+  resetGameState(gameState);
+  selectTowerType("arrow");
+};
 win.startWave = () => startWave(gameState);
 win.waveScheduler = (state = gameState, dt = 0) => waveScheduler(state, dt);
 win.spawnGrunt = (state = gameState, delay = 0) => spawnGrunt(state, delay);
@@ -137,12 +249,19 @@ win.spawnEnemy = (state = gameState, type = "grunt", delay = 0) =>
 win.calculateDamage = calculateDamage;
 win.damageEnemy = damageEnemy;
 win.applyDamage = applyDamage;
+win.applySplashDamage = applySplashDamage;
 win.handleEnemyLeak = handleEnemyLeak;
 win.ENEMY_CONFIGS = ENEMY_CONFIGS;
 win.RUNNER_CONFIG = RUNNER_CONFIG;
 win.TANK_CONFIG = TANK_CONFIG;
 win.GRUNT_CONFIG = GRUNT_CONFIG;
 win.getEnemyConfig = getEnemyConfig;
+win.TOWER_CONFIGS = TOWER_CONFIGS;
+win.TOWERS = TOWERS;
+win.ARROW_TOWER_CONFIG = ARROW_TOWER_CONFIG;
+win.CANNON_TOWER_CONFIG = CANNON_TOWER_CONFIG;
+win.CANNON_CONFIG = CANNON_CONFIG;
+win.getTowerConfig = getTowerConfig;
 
 let hoverCell: Cell | null = null;
 
@@ -166,6 +285,7 @@ canvas.addEventListener("mouseleave", () => {
 canvas.addEventListener("click", (event: MouseEvent) => {
   if (gameState.gameOver) {
     resetGameState(gameState);
+    selectTowerType("arrow");
     return;
   }
   const rect = canvas.getBoundingClientRect();
@@ -175,14 +295,20 @@ canvas.addEventListener("click", (event: MouseEvent) => {
   const clickY = (event.clientY - rect.top) * scaleY;
   const cell = worldToCell(clickX, clickY);
   if (!cell) return;
-  placeTower(gameState, cell.col, cell.row);
+  const config = getTowerConfig(selectedTowerType);
+  placeTower(gameState, cell.col, cell.row, config);
 });
 
 window.addEventListener("keydown", (event: KeyboardEvent) => {
   if (event.key === "r" || event.key === "R") {
     resetGameState(gameState);
+    selectTowerType("arrow");
   } else if (event.code === "Space" && gameState.status === "build") {
     startWave(gameState);
+  } else if (event.key === "1") {
+    selectTowerType("arrow");
+  } else if (event.key === "2") {
+    selectTowerType("cannon");
   }
 });
 
@@ -212,23 +338,52 @@ function frame(time: number): void {
   canvas.setAttribute("data-game-over", String(gameState.gameOver));
   canvas.setAttribute("data-won", String(gameState.isWon));
 
+  // Update button affordability states
+  if (gameState.gold >= ARROW_TOWER_CONFIG.cost) {
+    arrowBtn.classList.remove("cannot-afford");
+  } else {
+    arrowBtn.classList.add("cannot-afford");
+  }
+  if (gameState.gold >= CANNON_TOWER_CONFIG.cost) {
+    cannonBtn.classList.remove("cannot-afford");
+  } else {
+    cannonBtn.classList.add("cannot-afford");
+  }
+
   drawMap(ctx!);
 
   // Hover placement indicator
-  if (!gameState.gameOver && hoverCell && canPlaceTower(gameState, hoverCell.col, hoverCell.row)) {
+  const activeConfig = getTowerConfig(selectedTowerType);
+  if (
+    !gameState.gameOver &&
+    hoverCell &&
+    canPlaceTower(gameState, hoverCell.col, hoverCell.row, activeConfig.cost)
+  ) {
     const center = cellCenter(hoverCell);
     ctx!.save();
     ctx!.beginPath();
-    ctx!.arc(center.x, center.y, ARROW_TOWER_CONFIG.range * CELL, 0, Math.PI * 2);
-    ctx!.fillStyle = "rgba(233, 196, 106, 0.08)";
-    ctx!.fill();
-    ctx!.strokeStyle = "rgba(233, 196, 106, 0.4)";
-    ctx!.lineWidth = 1.5;
-    ctx!.setLineDash([4, 4]);
-    ctx!.stroke();
+    ctx!.arc(center.x, center.y, activeConfig.range * CELL, 0, Math.PI * 2);
+    if (activeConfig.type === "cannon") {
+      ctx!.fillStyle = "rgba(231, 111, 81, 0.08)";
+      ctx!.fill();
+      ctx!.strokeStyle = "rgba(231, 111, 81, 0.5)";
+      ctx!.lineWidth = 1.5;
+      ctx!.setLineDash([4, 4]);
+      ctx!.stroke();
 
-    ctx!.fillStyle = "rgba(233, 196, 106, 0.25)";
-    ctx!.fillRect(hoverCell.col * CELL, hoverCell.row * CELL, CELL, CELL);
+      ctx!.fillStyle = "rgba(231, 111, 81, 0.25)";
+      ctx!.fillRect(hoverCell.col * CELL, hoverCell.row * CELL, CELL, CELL);
+    } else {
+      ctx!.fillStyle = "rgba(233, 196, 106, 0.08)";
+      ctx!.fill();
+      ctx!.strokeStyle = "rgba(233, 196, 106, 0.4)";
+      ctx!.lineWidth = 1.5;
+      ctx!.setLineDash([4, 4]);
+      ctx!.stroke();
+
+      ctx!.fillStyle = "rgba(233, 196, 106, 0.25)";
+      ctx!.fillRect(hoverCell.col * CELL, hoverCell.row * CELL, CELL, CELL);
+    }
     ctx!.restore();
   } else if (
     !gameState.gameOver &&

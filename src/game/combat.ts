@@ -1,3 +1,4 @@
+import { CELL } from "./map";
 import type { Enemy } from "./enemy";
 import { DamageType } from "../data/towers";
 
@@ -109,3 +110,106 @@ export function applyDamage(
 }
 
 export const damageEnemy = applyDamage;
+
+/**
+ * Applies splash damage to primary target and all enemies within splashRadius (cells or px).
+ * - Primary target is hit with splash damage.
+ * - All other active enemies within splashRadius from primary target are hit with splash damage.
+ * - Splash damage ignores singleDamageMult (deals full damage).
+ * - Invokes onKill for each enemy killed.
+ * Returns array of enemies killed by this splash attack.
+ */
+export function applySplashDamage(
+  target: Enemy | { x: number; y: number; id?: number },
+  arg2: readonly Enemy[] | number,
+  arg3?: number | readonly Enemy[] | ((enemy: Enemy) => void),
+  arg4?: number | readonly Enemy[] | ((enemy: Enemy) => void),
+  arg5?: (enemy: Enemy) => void,
+): Enemy[] {
+  let enemies: readonly Enemy[] = [];
+  let damage = 0;
+  let splashRadius = 1.5;
+  let onKill: ((enemy: Enemy) => void) | undefined;
+
+  // Determine arguments based on types
+  if (Array.isArray(arg2)) {
+    // Signature: (target, enemies, damage, splashRadius?, onKill?)
+    enemies = arg2;
+    if (typeof arg3 === "number") {
+      damage = arg3;
+    }
+    if (typeof arg4 === "number") {
+      splashRadius = arg4;
+      if (typeof arg5 === "function") {
+        onKill = arg5;
+      }
+    } else if (typeof arg4 === "function") {
+      onKill = arg4;
+    }
+  } else if (typeof arg2 === "number") {
+    // Signature: (target, damage, splashRadius?, enemies?, onKill?)
+    // or: (target, damage, enemies, splashRadius?, onKill?)
+    damage = arg2;
+    if (Array.isArray(arg3)) {
+      enemies = arg3;
+      if (typeof arg4 === "number") {
+        splashRadius = arg4;
+        if (typeof arg5 === "function") {
+          onKill = arg5;
+        }
+      } else if (typeof arg4 === "function") {
+        onKill = arg4;
+      }
+    } else if (typeof arg3 === "number") {
+      splashRadius = arg3;
+      if (Array.isArray(arg4)) {
+        enemies = arg4;
+        if (typeof arg5 === "function") {
+          onKill = arg5;
+        }
+      } else if (typeof arg4 === "function") {
+        onKill = arg4;
+      }
+    } else if (typeof arg3 === "function") {
+      onKill = arg3;
+    }
+  }
+
+  const radiusPx = splashRadius <= 10 ? splashRadius * CELL : splashRadius;
+  const killed: Enemy[] = [];
+
+  const handleKill = (enemy: Enemy) => {
+    killed.push(enemy);
+    if (onKill) {
+      onKill(enemy);
+    }
+  };
+
+  const isEnemy = "hp" in target && typeof (target as Enemy).hp === "number";
+  const targetEnemy = isEnemy ? (target as Enemy) : null;
+
+  // 1. Damage primary target
+  if (targetEnemy && !targetEnemy.dead && !targetEnemy.leaked) {
+    applyDamage(targetEnemy, damage, "splash", handleKill);
+  }
+
+  // 2. Damage other active enemies within splash radius
+  const originX = target.x;
+  const originY = target.y;
+  const primaryId = targetEnemy ? targetEnemy.id : ("id" in target ? (target as { id?: number }).id : undefined);
+
+  for (const enemy of enemies) {
+    if (primaryId !== undefined && enemy.id === primaryId) {
+      continue;
+    }
+    if (enemy.dead || enemy.leaked || enemy.spawnDelay > 0) {
+      continue;
+    }
+    const dist = Math.hypot(enemy.x - originX, enemy.y - originY);
+    if (dist <= radiusPx) {
+      applyDamage(enemy, damage, "splash", handleKill);
+    }
+  }
+
+  return killed;
+}

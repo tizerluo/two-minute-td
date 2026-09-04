@@ -7,6 +7,7 @@ import {
   calculateDamage,
   applyDamage,
   damageEnemy,
+  applySplashDamage,
 } from "./enemy";
 import {
   Tower,
@@ -17,6 +18,8 @@ import {
   canPlaceTower,
   buildTower,
   resetTowerId,
+  placeArrowTower,
+  placeCannonTower,
 } from "./tower";
 import {
   EnemyConfig,
@@ -25,6 +28,15 @@ import {
   TANK_CONFIG,
   getEnemyConfig,
 } from "../data/enemies";
+import {
+  TowerConfig,
+  ARROW_TOWER_CONFIG,
+  CANNON_TOWER_CONFIG,
+  CANNON_CONFIG,
+  TOWER_CONFIGS,
+  TOWERS,
+  getTowerConfig,
+} from "../data/towers";
 import { WAVES, TOTAL_WAVES, WaveConfig, SpawnEntry } from "../data/waves";
 
 export const INITIAL_LIVES = 10;
@@ -309,14 +321,40 @@ export function drawEnemies(
   }
 }
 
+export function placeCannon(
+  state: GameState,
+  col: number,
+  row: number,
+): Tower | null {
+  return placeCannonTower(state, col, row);
+}
+
+export function placeArrow(
+  state: GameState,
+  col: number,
+  row: number,
+): Tower | null {
+  return placeArrowTower(state, col, row);
+}
+
 export {
   drawTowers,
   placeTower,
   canPlaceTower,
   buildTower,
   createTower,
+  placeArrowTower,
+  placeCannonTower,
   calculateDamage,
   damageEnemy,
   applyDamage,
+  applySplashDamage,
+  ARROW_TOWER_CONFIG,
+  CANNON_TOWER_CONFIG,
+  CANNON_CONFIG,
+  TOWER_CONFIGS,
+  TOWERS,
+  getTowerConfig,
 };
-export type { WaveConfig, SpawnEntry };
+export type { WaveConfig, SpawnEntry, TowerConfig };
+
