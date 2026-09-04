@@ -5,6 +5,7 @@ export interface EnemyConfig {
   speed: number; // cells per second
   radius: number;
   color: string;
+  reward?: number;
 }
 
 export const GRUNT_CONFIG: EnemyConfig = {
@@ -14,4 +15,5 @@ export const GRUNT_CONFIG: EnemyConfig = {
   speed: 1.5,
   radius: 14,
   color: "#e63946",
+  reward: 10,
 };

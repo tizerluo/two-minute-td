@@ -18,6 +18,7 @@ export interface Enemy {
   spawnDelay: number;
   leaked: boolean;
   dead: boolean;
+  reward: number;
 }
 
 let nextEnemyId = 1;
@@ -48,6 +49,7 @@ export function createEnemy(
     spawnDelay,
     leaked: false,
     dead: false,
+    reward: config.reward ?? 10,
   };
 }
 
@@ -139,3 +141,28 @@ export function drawEnemies(
     drawEnemy(ctx, enemy);
   }
 }
+
+/**
+ * Apply damage to an enemy. Marks dead when hp <= 0 and calls onKill.
+ * Returns true if the hit resulted in a kill.
+ */
+export function damageEnemy(
+  enemy: Enemy,
+  amount: number,
+  onKill?: (enemy: Enemy) => void,
+): boolean {
+  if (enemy.dead || enemy.leaked) return false;
+  enemy.hp -= amount;
+  if (enemy.hp <= 0) {
+    enemy.hp = 0;
+    if (!enemy.dead) {
+      enemy.dead = true;
+      if (onKill) {
+        onKill(enemy);
+      }
+    }
+    return true;
+  }
+  return false;
+}
+
