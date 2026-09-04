@@ -286,7 +286,7 @@ export function updateGameState(state: GameState, dt: number): void {
       state.enemies.length === 0
     ) {
       if (state.wave < TOTAL_WAVES) {
-        // After W1 clear start W2
+        // Advance to next wave
         state.wave++;
         state.currentWave = state.wave;
         state.spawnedInWave = 0;
@@ -305,7 +305,7 @@ export function updateGameState(state: GameState, dt: number): void {
           state.spawnTimer = entry.delay;
         }
       } else {
-        // Clear W2 = win
+        // Clear W6 = win
         state.status = "won";
         state.phase = "won";
         state.isWon = true;

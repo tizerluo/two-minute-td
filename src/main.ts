@@ -57,7 +57,7 @@ import {
   TowerConfig,
   getTowerConfig,
 } from "./data/towers";
-import { TOTAL_WAVES } from "./data/waves";
+import { TOTAL_WAVES, WAVES } from "./data/waves";
 
 const canvas = document.createElement("canvas");
 canvas.width = MAP_W;
@@ -240,6 +240,8 @@ interface WindowWithGame {
   ICE_TOWER_CONFIG: typeof ICE_TOWER_CONFIG;
   ICE_CONFIG: typeof ICE_TOWER_CONFIG;
   getTowerConfig: typeof getTowerConfig;
+  WAVES: typeof WAVES;
+  TOTAL_WAVES: typeof TOTAL_WAVES;
 }
 
 const win = window as unknown as WindowWithGame;
@@ -321,6 +323,8 @@ win.CANNON_CONFIG = CANNON_CONFIG;
 win.ICE_TOWER_CONFIG = ICE_TOWER_CONFIG;
 win.ICE_CONFIG = ICE_CONFIG;
 win.getTowerConfig = getTowerConfig;
+win.WAVES = WAVES;
+win.TOTAL_WAVES = TOTAL_WAVES;
 
 let hoverCell: Cell | null = null;
 
