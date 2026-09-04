@@ -1,8 +1,8 @@
-# Two-Minute TD
+# Two-Minute TD · 两分钟塔防
 
-> experiment note
+> **这不只是一个丑丑的小塔防——它是一次可玩的多 Agent 实验记录。**
 
-Play: https://two-minute-td.vercel.app
+**在线试玩：** https://two-minute-td.vercel.app
 
 用 **Grok Bot 双席**（幕僚长 + 研发）+ **Notion AI（Fable）** + **AGY** 一天做出可玩塔防并上线 Vercel。公开检索未见同款组合，故记入仓库。
 
