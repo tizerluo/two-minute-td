@@ -1,11 +1,9 @@
-import './styles.css';
-
-const LOGICAL_W = 768;
-const LOGICAL_H = 448;
+import "./styles.css";
+import { drawMap, MAP_H, MAP_W } from "./game/map";
 
 const canvas = document.createElement("canvas");
-canvas.width = LOGICAL_W;
-canvas.height = LOGICAL_H;
+canvas.width = MAP_W;
+canvas.height = MAP_H;
 
 const app = document.querySelector("#app");
 if (!app) {
@@ -19,14 +17,14 @@ if (!ctx) {
 }
 
 function frame(_t: number): void {
-  ctx!.fillStyle = "#16213e";
-  ctx!.fillRect(0, 0, LOGICAL_W, LOGICAL_H);
+  drawMap(ctx!);
 
-  ctx!.fillStyle = "#e94560";
-  ctx!.font = "28px system-ui, sans-serif";
-  ctx!.textAlign = "center";
-  ctx!.textBaseline = "middle";
-  ctx!.fillText("Two-Minute TD", LOGICAL_W / 2, LOGICAL_H / 2);
+  // Light title overlay (does not obscure the map much)
+  ctx!.fillStyle = "rgba(233, 69, 96, 0.85)";
+  ctx!.font = "18px system-ui, sans-serif";
+  ctx!.textAlign = "left";
+  ctx!.textBaseline = "top";
+  ctx!.fillText("Two-Minute TD", 10, 8);
 
   requestAnimationFrame(frame);
 }
