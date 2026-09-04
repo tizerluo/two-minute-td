@@ -1,4 +1,4 @@
-import { Enemy, createEnemy, updateEnemies, drawEnemy } from "./enemy";
+import { Enemy, createEnemy, updateEnemies, drawEnemy, resetEnemyId } from "./enemy";
 import {
   Tower,
   createTower,
@@ -7,35 +7,100 @@ import {
   placeTower,
   canPlaceTower,
   buildTower,
+  resetTowerId,
 } from "./tower";
 import { GRUNT_CONFIG } from "../data/enemies";
+import { WAVES, TOTAL_WAVES, WaveConfig } from "../data/waves";
 
 export const INITIAL_LIVES = 10;
 export const INITIAL_GOLD = 120;
+export const BUILD_PHASE_DURATION = 3; // 3 seconds initial build phase
 export const DEFAULT_INITIAL_ENEMIES = 4;
 export const SPAWN_INTERVAL = 1.2;
+
+export type GameStatus = "build" | "wave" | "won" | "lost";
 
 export interface GameState {
   lives: number;
   gold: number;
   enemies: Enemy[];
   towers: Tower[];
+  wave: number;
+  currentWave: number;
+  totalWaves: number;
+  status: GameStatus;
+  phase: GameStatus;
+  buildTimer: number;
+  spawnTimer: number;
+  spawnedInWave: number;
+  isWon: boolean;
+  isLost: boolean;
+  gameOver: boolean;
+  won: boolean;
+  lost: boolean;
 }
 
 export function createGameState(): GameState {
-  const state: GameState = {
+  return {
     lives: INITIAL_LIVES,
     gold: INITIAL_GOLD,
     enemies: [],
     towers: [],
+    wave: 1,
+    currentWave: 1,
+    totalWaves: TOTAL_WAVES,
+    status: "build",
+    phase: "build",
+    buildTimer: BUILD_PHASE_DURATION,
+    spawnTimer: 0,
+    spawnedInWave: 0,
+    isWon: false,
+    isLost: false,
+    gameOver: false,
+    won: false,
+    lost: false,
   };
+}
 
-  // Spawn a few on start
-  for (let i = 0; i < DEFAULT_INITIAL_ENEMIES; i++) {
-    state.enemies.push(createEnemy(GRUNT_CONFIG, i * SPAWN_INTERVAL));
-  }
-
+export function resetGameState(state: GameState): GameState {
+  state.lives = INITIAL_LIVES;
+  state.gold = INITIAL_GOLD;
+  state.enemies = [];
+  state.towers = [];
+  state.wave = 1;
+  state.currentWave = 1;
+  state.totalWaves = TOTAL_WAVES;
+  state.status = "build";
+  state.phase = "build";
+  state.buildTimer = BUILD_PHASE_DURATION;
+  state.spawnTimer = 0;
+  state.spawnedInWave = 0;
+  state.isWon = false;
+  state.isLost = false;
+  state.gameOver = false;
+  state.won = false;
+  state.lost = false;
+  resetEnemyId();
+  resetTowerId();
   return state;
+}
+
+export const restartGame = resetGameState;
+
+export function startWave(state: GameState): void {
+  if (state.status === "build") {
+    state.status = "wave";
+    state.phase = "wave";
+    state.buildTimer = 0;
+    const waveConfig = WAVES[state.wave - 1];
+    if (waveConfig && state.spawnedInWave === 0 && waveConfig.count > 0) {
+      state.enemies.push(createEnemy(waveConfig.enemyConfig, 0));
+      state.spawnedInWave = 1;
+      state.spawnTimer = waveConfig.interval;
+    } else {
+      state.spawnTimer = 0;
+    }
+  }
 }
 
 export function spawnGrunt(state: GameState, delay = 0): Enemy {
@@ -45,14 +110,104 @@ export function spawnGrunt(state: GameState, delay = 0): Enemy {
 }
 
 export function updateGameState(state: GameState, dt: number): void {
+  if (state.gameOver || state.lives <= 0) {
+    if (state.lives <= 0 && !state.gameOver) {
+      state.lives = 0;
+      state.status = "lost";
+      state.phase = "lost";
+      state.isLost = true;
+      state.lost = true;
+      state.gameOver = true;
+    }
+    return;
+  }
+
+  // 1. Build Phase countdown
+  if (state.status === "build") {
+    if (state.buildTimer > dt) {
+      state.buildTimer -= dt;
+      dt = 0;
+    } else {
+      dt -= state.buildTimer;
+      state.buildTimer = 0;
+      state.status = "wave";
+      state.phase = "wave";
+      state.spawnTimer = 0;
+    }
+  }
+
+  // 2. Wave enemy spawn scheduler
+  if (state.status === "wave") {
+    const waveIndex = state.wave - 1;
+    const waveConfig = WAVES[waveIndex];
+
+    if (waveConfig && state.spawnedInWave < waveConfig.count) {
+      state.spawnTimer -= dt;
+      while (state.spawnTimer <= 0 && state.spawnedInWave < waveConfig.count) {
+        state.enemies.push(createEnemy(waveConfig.enemyConfig, 0));
+        state.spawnedInWave++;
+        state.spawnTimer += waveConfig.interval;
+      }
+    }
+  }
+
+  // 3. Update enemies along path
   state.enemies = updateEnemies(state.enemies, dt, () => {
     state.lives = Math.max(0, state.lives - 1);
   });
 
+  // 4. Update towers (targeting, shooting, cooldown, gold reward)
   updateTowers(state, dt);
 
-  // Filter out any enemies that died from tower attacks
+  // 5. Filter out dead enemies
   state.enemies = state.enemies.filter((e) => !e.dead);
+
+  // 6. Check lose condition
+  if (state.lives <= 0) {
+    state.lives = 0;
+    state.status = "lost";
+    state.phase = "lost";
+    state.isLost = true;
+    state.lost = true;
+    state.gameOver = true;
+    return;
+  }
+
+  // 7. Check wave completion condition
+  if (state.status === "wave") {
+    const waveIndex = state.wave - 1;
+    const waveConfig = WAVES[waveIndex];
+
+    if (
+      waveConfig &&
+      state.spawnedInWave >= waveConfig.count &&
+      state.enemies.length === 0
+    ) {
+      if (state.wave < TOTAL_WAVES) {
+        // After W1 clear start W2
+        state.wave++;
+        state.currentWave = state.wave;
+        state.spawnedInWave = 0;
+        state.spawnTimer = 0;
+        state.status = "wave";
+        state.phase = "wave";
+
+        const nextConfig = WAVES[state.wave - 1];
+        if (nextConfig && nextConfig.count > 0) {
+          state.enemies.push(createEnemy(nextConfig.enemyConfig, 0));
+          state.spawnedInWave = 1;
+          state.spawnTimer = nextConfig.interval;
+        }
+      } else {
+        // Clear W2 = win
+        state.status = "won";
+        state.phase = "won";
+        state.isWon = true;
+        state.won = true;
+        state.gameOver = true;
+      }
+    }
+  }
 }
 
 export function drawEnemies(
@@ -66,5 +221,4 @@ export function drawEnemies(
 }
 
 export { drawTowers, placeTower, canPlaceTower, buildTower, createTower };
-
-
+export type { WaveConfig };
