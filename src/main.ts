@@ -18,6 +18,7 @@ import {
   placeTower,
   canPlaceTower,
   startWave,
+  waveScheduler,
   GameState,
 } from "./game/state";
 import { ARROW_TOWER_CONFIG } from "./data/towers";
@@ -89,6 +90,7 @@ interface WindowWithGame {
   resetGameState: (state?: GameState) => void;
   restartGame: (state?: GameState) => void;
   startWave: (state?: GameState) => void;
+  waveScheduler: (state?: GameState, dt?: number) => void;
 }
 
 const win = window as unknown as WindowWithGame;
@@ -97,6 +99,7 @@ win.placeTower = (col: number, row: number) => placeTower(gameState, col, row);
 win.resetGameState = () => resetGameState(gameState);
 win.restartGame = () => resetGameState(gameState);
 win.startWave = () => startWave(gameState);
+win.waveScheduler = (state = gameState, dt = 0) => waveScheduler(state, dt);
 
 let hoverCell: Cell | null = null;
 

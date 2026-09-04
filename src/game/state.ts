@@ -9,8 +9,8 @@ import {
   buildTower,
   resetTowerId,
 } from "./tower";
-import { GRUNT_CONFIG } from "../data/enemies";
-import { WAVES, TOTAL_WAVES, WaveConfig } from "../data/waves";
+import { GRUNT_CONFIG, getEnemyConfig } from "../data/enemies";
+import { WAVES, TOTAL_WAVES, WaveConfig, SpawnEntry } from "../data/waves";
 
 export const INITIAL_LIVES = 10;
 export const INITIAL_GOLD = 120;
@@ -33,6 +33,7 @@ export interface GameState {
   buildTimer: number;
   spawnTimer: number;
   spawnedInWave: number;
+  spawnIndex: number;
   isWon: boolean;
   isLost: boolean;
   gameOver: boolean;
@@ -54,6 +55,7 @@ export function createGameState(): GameState {
     buildTimer: BUILD_PHASE_DURATION,
     spawnTimer: 0,
     spawnedInWave: 0,
+    spawnIndex: 0,
     isWon: false,
     isLost: false,
     gameOver: false,
@@ -75,6 +77,7 @@ export function resetGameState(state: GameState): GameState {
   state.buildTimer = BUILD_PHASE_DURATION;
   state.spawnTimer = 0;
   state.spawnedInWave = 0;
+  state.spawnIndex = 0;
   state.isWon = false;
   state.isLost = false;
   state.gameOver = false;
@@ -87,16 +90,38 @@ export function resetGameState(state: GameState): GameState {
 
 export const restartGame = resetGameState;
 
+function getWaveSpawns(waveConfig?: WaveConfig): readonly SpawnEntry[] {
+  if (!waveConfig) return [];
+  if (waveConfig.spawns && waveConfig.spawns.length > 0) {
+    return waveConfig.spawns;
+  }
+  if (waveConfig.entries && waveConfig.entries.length > 0) {
+    return waveConfig.entries;
+  }
+  if (waveConfig.spawnList && waveConfig.spawnList.length > 0) {
+    return waveConfig.spawnList;
+  }
+  return [];
+}
+
+function spawnEnemyByType(type: string, delay = 0): Enemy {
+  const config = getEnemyConfig(type);
+  return createEnemy(config, delay);
+}
+
 export function startWave(state: GameState): void {
   if (state.status === "build") {
     state.status = "wave";
     state.phase = "wave";
     state.buildTimer = 0;
     const waveConfig = WAVES[state.wave - 1];
-    if (waveConfig && state.spawnedInWave === 0 && waveConfig.count > 0) {
-      state.enemies.push(createEnemy(waveConfig.enemyConfig, 0));
+    const spawns = getWaveSpawns(waveConfig);
+    if (waveConfig && state.spawnedInWave === 0 && spawns.length > 0) {
+      const entry = spawns[0];
+      state.enemies.push(spawnEnemyByType(entry.type, 0));
       state.spawnedInWave = 1;
-      state.spawnTimer = waveConfig.interval;
+      state.spawnIndex = 1;
+      state.spawnTimer = entry.delay;
     } else {
       state.spawnTimer = 0;
     }
@@ -107,6 +132,28 @@ export function spawnGrunt(state: GameState, delay = 0): Enemy {
   const enemy = createEnemy(GRUNT_CONFIG, delay);
   state.enemies.push(enemy);
   return enemy;
+}
+
+export function waveScheduler(state: GameState, dt: number): void {
+  if (state.status !== "wave") return;
+
+  const waveIndex = state.wave - 1;
+  const waveConfig = WAVES[waveIndex];
+  if (!waveConfig) return;
+
+  const spawns = getWaveSpawns(waveConfig);
+  const totalSpawns = spawns.length;
+
+  if (state.spawnedInWave < totalSpawns) {
+    state.spawnTimer -= dt;
+    while (state.spawnTimer <= 0 && state.spawnedInWave < totalSpawns) {
+      const entry = spawns[state.spawnedInWave];
+      state.enemies.push(spawnEnemyByType(entry.type, 0));
+      state.spawnedInWave++;
+      state.spawnIndex = state.spawnedInWave;
+      state.spawnTimer += entry.delay;
+    }
+  }
 }
 
 export function updateGameState(state: GameState, dt: number): void {
@@ -133,27 +180,18 @@ export function updateGameState(state: GameState, dt: number): void {
       state.status = "wave";
       state.phase = "wave";
       state.spawnTimer = 0;
+      state.spawnedInWave = 0;
+      state.spawnIndex = 0;
     }
   }
 
   // 2. Wave enemy spawn scheduler
-  if (state.status === "wave") {
-    const waveIndex = state.wave - 1;
-    const waveConfig = WAVES[waveIndex];
-
-    if (waveConfig && state.spawnedInWave < waveConfig.count) {
-      state.spawnTimer -= dt;
-      while (state.spawnTimer <= 0 && state.spawnedInWave < waveConfig.count) {
-        state.enemies.push(createEnemy(waveConfig.enemyConfig, 0));
-        state.spawnedInWave++;
-        state.spawnTimer += waveConfig.interval;
-      }
-    }
-  }
+  waveScheduler(state, dt);
 
   // 3. Update enemies along path
-  state.enemies = updateEnemies(state.enemies, dt, () => {
-    state.lives = Math.max(0, state.lives - 1);
+  state.enemies = updateEnemies(state.enemies, dt, (leakedEnemy) => {
+    const cost = leakedEnemy.livesCost ?? 1;
+    state.lives = Math.max(0, state.lives - cost);
   });
 
   // 4. Update towers (targeting, shooting, cooldown, gold reward)
@@ -177,10 +215,12 @@ export function updateGameState(state: GameState, dt: number): void {
   if (state.status === "wave") {
     const waveIndex = state.wave - 1;
     const waveConfig = WAVES[waveIndex];
+    const spawns = getWaveSpawns(waveConfig);
+    const totalSpawns = spawns.length || (waveConfig?.count ?? 0);
 
     if (
       waveConfig &&
-      state.spawnedInWave >= waveConfig.count &&
+      state.spawnedInWave >= totalSpawns &&
       state.enemies.length === 0
     ) {
       if (state.wave < TOTAL_WAVES) {
@@ -188,15 +228,19 @@ export function updateGameState(state: GameState, dt: number): void {
         state.wave++;
         state.currentWave = state.wave;
         state.spawnedInWave = 0;
+        state.spawnIndex = 0;
         state.spawnTimer = 0;
         state.status = "wave";
         state.phase = "wave";
 
         const nextConfig = WAVES[state.wave - 1];
-        if (nextConfig && nextConfig.count > 0) {
-          state.enemies.push(createEnemy(nextConfig.enemyConfig, 0));
+        const nextSpawns = getWaveSpawns(nextConfig);
+        if (nextSpawns.length > 0) {
+          const entry = nextSpawns[0];
+          state.enemies.push(spawnEnemyByType(entry.type, 0));
           state.spawnedInWave = 1;
-          state.spawnTimer = nextConfig.interval;
+          state.spawnIndex = 1;
+          state.spawnTimer = entry.delay;
         }
       } else {
         // Clear W2 = win
@@ -220,5 +264,12 @@ export function drawEnemies(
   }
 }
 
-export { drawTowers, placeTower, canPlaceTower, buildTower, createTower };
-export type { WaveConfig };
+export {
+  drawTowers,
+  placeTower,
+  canPlaceTower,
+  buildTower,
+  createTower,
+};
+export type { WaveConfig, SpawnEntry };
+

@@ -1,6 +1,6 @@
 import { CELL, Vec2, cellCenter, isBuildable, WAYPOINTS } from "./map";
 import { Enemy, damageEnemy } from "./enemy";
-import { TowerConfig, ARROW_TOWER_CONFIG } from "../data/towers";
+import { TowerConfig, ARROW_TOWER_CONFIG, DamageType } from "../data/towers";
 
 export { WAYPOINTS };
 
@@ -22,6 +22,11 @@ export interface Tower {
   targetEnemyId: number | null;
   lastShotTimer: number;
   lastShotTarget: Vec2 | null;
+  damageType?: DamageType;
+  splashRadius?: number;
+  slow?: { pct: number; duration: number };
+  slowPct?: number;
+  slowDuration?: number;
 }
 
 let nextTowerId = 1;
@@ -54,6 +59,11 @@ export function createTower(
     targetEnemyId: null,
     lastShotTimer: 0,
     lastShotTarget: null,
+    damageType: config.damageType,
+    splashRadius: config.splashRadius,
+    slow: config.slow,
+    slowPct: config.slowPct ?? config.slow?.pct,
+    slowDuration: config.slowDuration ?? config.slow?.duration,
   };
 }
 

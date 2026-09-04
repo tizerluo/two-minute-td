@@ -6,6 +6,8 @@ export interface EnemyConfig {
   radius: number;
   color: string;
   reward?: number;
+  singleDamageMult?: number;
+  livesCost?: number;
 }
 
 export const GRUNT_CONFIG: EnemyConfig = {
@@ -16,4 +18,17 @@ export const GRUNT_CONFIG: EnemyConfig = {
   radius: 14,
   color: "#e63946",
   reward: 10,
+  singleDamageMult: 1,
+  livesCost: 1,
 };
+
+export const ENEMY_CONFIGS: Record<string, EnemyConfig> = {
+  grunt: GRUNT_CONFIG,
+};
+
+export const ENEMIES = ENEMY_CONFIGS;
+
+export function getEnemyConfig(type: string): EnemyConfig {
+  return ENEMY_CONFIGS[type] ?? GRUNT_CONFIG;
+}
+

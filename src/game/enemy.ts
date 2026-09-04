@@ -19,6 +19,8 @@ export interface Enemy {
   leaked: boolean;
   dead: boolean;
   reward: number;
+  singleDamageMult?: number;
+  livesCost?: number;
 }
 
 let nextEnemyId = 1;
@@ -50,6 +52,8 @@ export function createEnemy(
     leaked: false,
     dead: false,
     reward: config.reward ?? 10,
+    singleDamageMult: config.singleDamageMult ?? 1,
+    livesCost: config.livesCost ?? 1,
   };
 }
 
